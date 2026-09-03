@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Local SQLite database (no-Docker mode)
+*.db
+*.db-shm
+*.db-wal
+
+# Angular / Node
+node_modules/
+dist/
+.angular/
+
+# IDE
+.vs/
+.idea/
+*.suo

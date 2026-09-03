@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: leave
+      POSTGRES_USER: leave
+      POSTGRES_PASSWORD: leave
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leave -d leave"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      ASPNETCORE_URLS: "http://+:5080"
+      ConnectionStrings__Leave: "Host=db;Port=5432;Database=leave;Username=leave;Password=leave"
+    ports:
+      - "5080:5080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
