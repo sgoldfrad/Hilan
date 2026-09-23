@@ -22,6 +22,7 @@
 ### איפה AI עזר (כולל prompts)
 1. prompt: "Bug fix: There is a bug in the vacation balance check—an employee can submit a request that exceeds the annual quota, and the system accepts it. The issue is located in `LeaveRequestsController` within the // POST /api/leave-requests [HttpPost] request; the logic needs to be updated to validate against the days already used." → קיבלתי את התיקון המדויק ל-`Create` (השוואה מול `used + days` במקום רק `days`), ואימצתי אותו כמו שהוא.
 2. prompt: "Please also add a test case that demonstrates the fix." → קיבלתי טסט חדש (`Create_ExceedingRemainingQuota_ReturnsBadRequest`) שממחיש את התיקון, הרצתי אותו ווידאתי שהוא עובר.
+3. prompt: "leav-requests form with validation: start date is not later than end date, leave type is mandatory, no negative number of days. Clear error messages." → קיבלתי טופס "בקשה חדשה" מלא ב-`leave-requests.component.ts`/`.html`/`.css` (frontend/src/app/leave-requests), בנוי עם Angular Reactive Forms: שדות חובה לעובד/סוג חופשה/תאריכי התחלה-סיום, ו-validator ברמת ה-`FormGroup` שחוסם שליחה כשתאריך ההתחלה מאוחר מתאריך הסיום (מה שמונע גם מספר ימים שלילי), עם הודעות שגיאה ברורות לצד כל שדה. תיקנתי בעצמי שגיאת קומפילציה (`fb` used before initialization) שנוצרה כי ה-`FormGroup` אותחל כ-property בזמן שהוא תלוי ב-`fb` שמוזרק ב-constructor.
 
 ### איפה דחיתי/תיקנתי הצעה של AI
 - מה AI הציע, למה זה היה שגוי, ומה עשיתי במקום:
