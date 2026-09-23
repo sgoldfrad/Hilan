@@ -28,7 +28,7 @@
 - ה-AI הציע לפצל את טופס "בקשה חדשה" (בתוך `leave-requests.component.ts`/`.html`) לקומפוננטה נפרדת (`NewLeaveRequestComponent` עם `@Input`/`@Output`) כדי להפריד אחריות (single responsibility) בין הצגת הרשימה ליצירת בקשה. דחיתי את ההצעה ואמרתי "נשאיר ככה" - זו החלטה סבירה: זה POC קטן, ופיצול מוקדם מדי לפעמים מוסיף boilerplate מיותר בלי תועלת אמיתית בשלב הזה.
 
 ### אבטחה
-- אם מצאתם בעיית אבטחה: מה מצאתם, איפה (קובץ + שורה), למה זו בעיה, ואיך תיקנתם:
+- prompt: "עכשיו תעבור על הפרויקט בעיניים של סייבר ותראה האם אתה מוצא בעיות אבטחה." → ה-AI זיהה **SQL Injection** ב-`LeaveRequestService.Search` (backend/src/LeaveManagement.Api/Services/LeaveRequestService.cs): ה-endpoint `GET /api/leave-requests/search?name=...` בנה שאילתת SQL על ידי concatenation ישיר של הפרמטר `name` שמגיע מהמשתמש לתוך מחרוזת, והריץ אותה עם `FromSqlRaw`. כל אחד יכול היה להעביר ב-`name` מחרוזת כמו `x' OR '1'='1` או `'; DROP TABLE "Employees"; --` ולשנות את הלוגיקה של השאילתה, לחלץ נתונים שלא אמורים להיות נגישים, או למחוק/לשנות נתונים - קלאסי OWASP Top 10 (Injection). התיקון (שגם אותו ה-AI ביצע): הסרת ה-SQL הגולמי לגמרי והחלפתו בשאילתת LINQ (`_db.LeaveRequests.Include(r => r.Employee).Where(r => r.Employee != null && EF.Functions.Like(r.Employee.Name, $"%{name}%"))`), כך ש-EF Core בונה שאילתה פרמטרית מתחתיו ולא מחרוזת SQL חופשית. בנוסף נוספה ב-`LeaveRequestsController.Search` בדיקת `string.IsNullOrWhiteSpace(name)` שמחזירה `400 BadRequest` במקום לתת לשאילתה לרוץ עם קלט ריק/null.
 
 ## 6. הוראות הרצה
 - (אם שיניתם משהו מהוראות ה‑README המקורי)

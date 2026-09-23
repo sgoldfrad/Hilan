@@ -46,12 +46,9 @@ public class LeaveRequestService : ILeaveRequestService
     // Lets the UI quickly find requests by employee name.
     public List<LeaveRequest> Search(string name)
     {
-        // Build a quick query to filter by the employee name.
-        var sql = "SELECT * FROM \"LeaveRequests\" WHERE \"EmployeeId\" IN " +
-                  "(SELECT \"Id\" FROM \"Employees\" WHERE \"Name\" LIKE '%" + name + "%')";
-
         return _db.LeaveRequests
-            .FromSqlRaw(sql)
+            .Include(r => r.Employee)
+            .Where(r => r.Employee != null && EF.Functions.Like(r.Employee.Name, $"%{name}%"))
             .ToList();
     }
 

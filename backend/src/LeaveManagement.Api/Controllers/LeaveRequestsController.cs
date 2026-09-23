@@ -28,6 +28,9 @@ public class LeaveRequestsController : ControllerBase
     [HttpGet("search")]
     public IActionResult Search([FromQuery] string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest("Search name is required.");
+
         return Ok(_service.Search(name));
     }
 
