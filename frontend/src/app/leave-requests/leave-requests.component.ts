@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { Employee } from '../models/leave-request.model';
+import { Employee, LeaveRequest, LeaveStatus, LeaveType } from '../models/leave-request.model';
+import { LeaveRequestService } from '../services/leave-request.service';
+import { EmployeeService } from '../services/employee.service';
 
 // Flags an invalid range when the end date is earlier than the start date
 // (which is also the only way the computed day count could come out negative).
@@ -15,8 +17,6 @@ function dateRangeValidator(group: AbstractControl): ValidationErrors | null {
   return new Date(start) > new Date(end) ? { dateRange: true } : null;
 }
 
-// NOTE: This component was written quickly for a POC.
-// It talks to the API directly, manages state by hand and uses `any` everywhere.
 @Component({
   selector: 'app-leave-requests',
   standalone: true,
@@ -25,7 +25,10 @@ function dateRangeValidator(group: AbstractControl): ValidationErrors | null {
   styleUrls: ['./leave-requests.component.css']
 })
 export class LeaveRequestsComponent implements OnInit {
-  requests: any[] = [];
+  // Exposed so the template can compare against named values instead of magic numbers.
+  readonly LeaveStatus = LeaveStatus;
+
+  requests: LeaveRequest[] = [];
   employees: Employee[] = [];
   loading = false;
   submitting = false;
@@ -37,10 +40,12 @@ export class LeaveRequestsComponent implements OnInit {
 
   form: FormGroup;
 
-  private apiUrl = 'http://localhost:5080/api/leave-requests';
-  private employeesUrl = 'http://localhost:5080/api/employees';
-
-  constructor(private http: HttpClient, private fb: FormBuilder) {
+  constructor(
+    private leaveRequestService: LeaveRequestService,
+    private employeeService: EmployeeService,
+    private fb: FormBuilder,
+    private destroyRef: DestroyRef
+  ) {
     this.form = this.fb.group(
       {
         employeeId: [null, Validators.required],
@@ -59,16 +64,22 @@ export class LeaveRequestsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.http.get<any>(this.apiUrl).subscribe((data) => {
-      this.requests = data;
-      this.loading = false;
-    });
+    this.leaveRequestService
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((data) => {
+        this.requests = data;
+        this.loading = false;
+      });
   }
 
   loadEmployees(): void {
-    this.http.get<Employee[]>(this.employeesUrl).subscribe((data) => {
-      this.employees = data;
-    });
+    this.employeeService
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((data) => {
+        this.employees = data;
+      });
   }
 
   submit(): void {
@@ -82,8 +93,9 @@ export class LeaveRequestsComponent implements OnInit {
     const { employeeId, type, startDate, endDate } = this.form.value;
     this.submitting = true;
 
-    this.http
-      .post<any>(this.apiUrl, { employeeId, type, startDate, endDate })
+    this.leaveRequestService
+      .create({ employeeId, type, startDate, endDate })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.submitting = false;
@@ -101,23 +113,26 @@ export class LeaveRequestsComponent implements OnInit {
     delete this.approveErrors[id];
     this.approvingIds.add(id);
 
-    this.http.post<any>(`${this.apiUrl}/${id}/approve`, {}).subscribe({
-      next: (updated) => {
-        this.approvingIds.delete(id);
-        // Patch just the status in place: the approve response has no Employee
-        // navigation loaded, so replacing the whole row would blank that column.
-        const row = this.requests.find((r) => r.id === id);
-        if (row) {
-          row.status = updated.status;
+    this.leaveRequestService
+      .approve(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this.approvingIds.delete(id);
+          // Patch just the status in place: the approve response has no Employee
+          // navigation loaded, so replacing the whole row would blank that column.
+          const row = this.requests.find((r) => r.id === id);
+          if (row) {
+            row.status = updated.status;
+          }
+          this.justApprovedIds.add(id);
+          setTimeout(() => this.justApprovedIds.delete(id), 3000);
+        },
+        error: (err) => {
+          this.approvingIds.delete(id);
+          this.approveErrors[id] = typeof err?.error === 'string' ? err.error : 'Failed to approve the request.';
         }
-        this.justApprovedIds.add(id);
-        setTimeout(() => this.justApprovedIds.delete(id), 3000);
-      },
-      error: (err) => {
-        this.approvingIds.delete(id);
-        this.approveErrors[id] = typeof err?.error === 'string' ? err.error : 'Failed to approve the request.';
-      }
-    });
+      });
   }
 
   isApproving(id: number): boolean {
@@ -128,15 +143,16 @@ export class LeaveRequestsComponent implements OnInit {
     return this.justApprovedIds.has(id);
   }
 
-  typeLabel(type: number): string {
-    if (type == 0) return 'Vacation';
-    if (type == 1) return 'Sick';
+  typeLabel(type: LeaveType): string {
+    if (type === LeaveType.Vacation) return 'Vacation';
+    if (type === LeaveType.Sick) return 'Sick';
     return 'Unpaid';
   }
 
-  statusLabel(status: number): string {
-    if (status == 0) return 'Pending';
-    if (status == 1) return 'Approved';
+  statusLabel(status: LeaveStatus): string {
+    if (status === LeaveStatus.Pending) return 'Pending';
+    if (status === LeaveStatus.Approved) return 'Approved';
     return 'Rejected';
   }
 }
+
