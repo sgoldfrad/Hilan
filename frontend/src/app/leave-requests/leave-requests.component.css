@@ -50,6 +50,11 @@ button:disabled {
   flex-basis: 100%;
 }
 
+.success-text {
+  color: #1e8e3e;
+  font-size: 0.85em;
+}
+
 .error-banner {
   flex-basis: 100%;
   background: #fdecea;

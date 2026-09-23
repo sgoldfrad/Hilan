@@ -31,6 +31,10 @@ export class LeaveRequestsComponent implements OnInit {
   submitting = false;
   submitError: string | null = null;
 
+  private approvingIds = new Set<number>();
+  private justApprovedIds = new Set<number>();
+  approveErrors: Record<number, string> = {};
+
   form: FormGroup;
 
   private apiUrl = 'http://localhost:5080/api/leave-requests';
@@ -93,13 +97,35 @@ export class LeaveRequestsComponent implements OnInit {
       });
   }
 
-  // Wired up by the candidate as part of the assignment.
   approve(id: number): void {
-    // TODO (candidate): call POST /api/leave-requests/{id}/approve
-    // and handle loading / error / success without a generic alert.
-    this.http.post<any>(this.apiUrl + '/' + id + '/approve', {}).subscribe(() => {
-      this.load();
+    delete this.approveErrors[id];
+    this.approvingIds.add(id);
+
+    this.http.post<any>(`${this.apiUrl}/${id}/approve`, {}).subscribe({
+      next: (updated) => {
+        this.approvingIds.delete(id);
+        // Patch just the status in place: the approve response has no Employee
+        // navigation loaded, so replacing the whole row would blank that column.
+        const row = this.requests.find((r) => r.id === id);
+        if (row) {
+          row.status = updated.status;
+        }
+        this.justApprovedIds.add(id);
+        setTimeout(() => this.justApprovedIds.delete(id), 3000);
+      },
+      error: (err) => {
+        this.approvingIds.delete(id);
+        this.approveErrors[id] = typeof err?.error === 'string' ? err.error : 'Failed to approve the request.';
+      }
     });
+  }
+
+  isApproving(id: number): boolean {
+    return this.approvingIds.has(id);
+  }
+
+  isJustApproved(id: number): boolean {
+    return this.justApprovedIds.has(id);
   }
 
   typeLabel(type: number): string {
