@@ -83,4 +83,33 @@ public class LeaveRequestsController : ControllerBase
 
         return Ok(request);
     }
+
+    // POST /api/leave-requests/{id}/approve
+    [HttpPost("{id}/approve")]
+    public async Task<IActionResult> Approve(int id)
+    {
+        // Lock the row before reading it, so two concurrent approvals of the same
+        // request serialize instead of both seeing "Pending" and both succeeding.
+        // Postgres: real row-level lock. SQLite: no-op here (see DECISIONS.md).
+        using var tx = await _db.Database.BeginTransactionAsync();
+
+        if (_db.Database.IsNpgsql())
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                "SELECT 1 FROM \"LeaveRequests\" WHERE \"Id\" = {0} FOR UPDATE", id);
+        }
+
+        var request = await _db.LeaveRequests.FirstOrDefaultAsync(r => r.Id == id);
+        if (request == null)
+            return NotFound("Leave request not found");
+
+        if (request.Status != LeaveStatus.Pending)
+            return Conflict($"Leave request is already {request.Status}");
+
+        request.Status = LeaveStatus.Approved;
+        await _db.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return Ok(request);
+    }
 }
