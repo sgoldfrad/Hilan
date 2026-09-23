@@ -5,7 +5,7 @@
 > מלאו את הקובץ הזה. הוא חלק מההערכה — קצר וברור עדיף על ארוך.
 
 ## 1. החלטות ארכיטקטוניות
-- ...
+- הפרדת שכבות ב-Controller: `LeaveRequestsController` עשה גישה ל-DB, לוגיקה עסקית ו-validation באותו מקום. הוצאתי את כל הלוגיקה העסקית (חישוב ימים, בדיקת מכסה, בדיקת סטטוס + הטרנזקציה/lock ב-approve) ל-`ILeaveRequestService`/`LeaveRequestService` (backend/src/LeaveManagement.Api/Services/LeaveRequestService.cs), שעובד ישירות מול `LeaveDbContext`. ה-Controller נשאר דק — ממפה DTO לקריאה לסרוויס וממיר את תוצאת ה-`LeaveRequestOperationResult` (enum status) לקוד HTTP מתאים. לא הוספתי שכבת repository נוספת מעל ה-DbContext: EF Core כבר מספק unit-of-work/repository בעצמו, ועוד שכבה מעליו הייתה over-engineering מיותר לפרויקט בגודל הזה.
 
 ## 2. הבאג ביתרת החופשה
 - מה היה הבאג, איפה, ואיך תיקנתי: ב-`LeaveRequestsController.Create` (backend/src/LeaveManagement.Api/Controllers/LeaveRequestsController.cs) הבדיקה של המכסה השוותה רק את מספר הימים המבוקשים (`days`) מול `employee.AnnualQuota`, בלי להביא בחשבון ימי חופשה שכבר אושרו (`used`). כך עובד יכול היה להגיש בקשה שחורגת מהמכסה כל עוד הבקשה הבודדת עצמה לא חרגה. התיקון: שינוי התנאי ל-`used + days > employee.AnnualQuota`.

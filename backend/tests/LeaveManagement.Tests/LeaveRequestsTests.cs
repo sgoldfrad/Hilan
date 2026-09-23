@@ -1,5 +1,6 @@
 using LeaveManagement.Api.Controllers;
 using LeaveManagement.Api.Models;
+using LeaveManagement.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
@@ -23,7 +24,7 @@ public class LeaveRequestsTests : IClassFixture<TestDatabase>
         db.Employees.Add(emp);
         db.SaveChanges();
 
-        var controller = new LeaveRequestsController(db);
+        var controller = new LeaveRequestsController(new LeaveRequestService(db));
 
         // Act: request 3 days, well within the quota.
         var result = controller.Create(new CreateLeaveRequestDto
@@ -60,7 +61,7 @@ public class LeaveRequestsTests : IClassFixture<TestDatabase>
         });
         db.SaveChanges();
 
-        var controller = new LeaveRequestsController(db);
+        var controller = new LeaveRequestsController(new LeaveRequestService(db));
 
         // Act: request 3 more days, which would push the total to 11 (over the quota of 10).
         var result = controller.Create(new CreateLeaveRequestDto
